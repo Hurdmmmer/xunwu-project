@@ -1,0 +1,33 @@
+spring:
+  jpa: # 扫描实体包
+    packageToScan: com.youjian.xunwu.comm.entity
+    show-sql: true
+    hibernate:
+      ddl-auto: validate # 项目启动 Hibernate 对数据表进行验证, 不进行增删改操作
+  profiles:  # 指定多环境配置文件
+    active: dev
+  thymeleaf:
+    mode: HTML
+    suffix: .html
+    prefix: classpath:/templates/
+
+# 设置 logging 级别
+logging:
+  level:
+    # 指定包名下日志输出为 debug
+    org.hibernate.SQL: debug
+# 禁止 spring boot 生成错误页面
+server:
+  error:
+    whitelabel:
+      enabled: false
+## 关闭security basic 基本验证
+#security: # 低版本使用, 2.x 已经废弃
+#  basic:
+#    enabled: false
+
+elasticsearch:
+  host: 192.168.72.79
+  port: 9300
+  cluster: elasticsearch # 集群名称
+  clientTransportSniff: true # 是否自动发现节点

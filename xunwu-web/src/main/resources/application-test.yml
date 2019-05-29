@@ -1,0 +1,14 @@
+# 使用 H2 内存数据库进行测试
+spring:
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:test # 使用内存模式的url连接
+    schema: classpath:db/schema.sql # 指定 h2 数据库的建表语句路径
+    data: classpath:db/data.sql # 指定 h2 数据的数据 SQL
+# 七牛配置
+qiniu:
+  accessKey: 9NqvHPPks23fzJr0etQjqBqi5IU00I1yUt40MF70
+  secretKey: UiUU6rbvYQwFi8jlIg4SjNSM8PWY_H6lOzlMKplT
+  bucket: xunwu_img
+  cdn:
+    prefix: pr6f8dhqv.bkt.clouddn.com/

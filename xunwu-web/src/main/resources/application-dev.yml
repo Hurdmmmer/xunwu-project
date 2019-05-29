@@ -1,0 +1,30 @@
+spring:
+  datasource:  # JPA 数据源
+    driver-class-name: com.mysql.jdbc.Driver
+    username: root
+    password: 123456
+    url: jdbc:mysql://192.168.72.79:3307/xunwu?useUnicode=true&characterEncoding=utf8&autoReconnect=true&failOverReadOnly=false
+  thymeleaf:
+    # 自定义配置 thymeleaf 没有使用 thymeleaf auto-config, 缓存这块需要使用该名称绑定 SpringResourceTemplateResolver 中的属性
+    cacheable: false
+
+  servlet:
+    multipart:
+      enabled: true  # 开启文件上传
+      file-size-threshold: 5MB
+      max-file-size: 20MB
+      location: D:\demo\xunwu-project\tmp
+  redis:   # redis config
+    database: 0
+    host: 127.0.0.1
+    port: 6379
+    timeout: 3000
+  session:  # 设置 session 会话保存在 redis 中
+    store-type: redis
+# 七牛配置
+qiniu:
+  accessKey: 9NqvHPPks23fzJr0etQjqBqi5IU00I1yUt40MF70
+  secretKey: UiUU6rbvYQwFi8jlIg4SjNSM8PWY_H6lOzlMKplT
+  bucket: xunwu_img
+  cdn:
+    prefix: pr6f8dhqv.bkt.clouddn.com/
