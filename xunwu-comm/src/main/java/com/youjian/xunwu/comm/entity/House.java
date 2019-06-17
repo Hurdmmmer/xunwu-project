@@ -3,11 +3,12 @@ package com.youjian.xunwu.comm.entity;
 import lombok.Data;
 
 import javax.persistence.*;
+import java.io.Serializable;
 import java.util.Date;
 
 @Data
 @Entity(name = "house")
-public class House {
+public class House implements Serializable {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;

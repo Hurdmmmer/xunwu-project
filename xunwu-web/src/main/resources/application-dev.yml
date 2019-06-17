@@ -4,10 +4,11 @@ spring:
     username: root
     password: 123456
     url: jdbc:mysql://192.168.72.79:3307/xunwu?useUnicode=true&characterEncoding=utf8&autoReconnect=true&failOverReadOnly=false
+  jpa:
+    database-platform: org.hibernate.dialect.MySQLDialect
   thymeleaf:
     # 自定义配置 thymeleaf 没有使用 thymeleaf auto-config, 缓存这块需要使用该名称绑定 SpringResourceTemplateResolver 中的属性
     cacheable: false
-
   servlet:
     multipart:
       enabled: true  # 开启文件上传
@@ -16,7 +17,7 @@ spring:
       location: D:\demo\xunwu-project\tmp
   redis:   # redis config
     database: 0
-    host: 127.0.0.1
+    host: 192.168.1.204
     port: 6379
     timeout: 3000
   session:  # 设置 session 会话保存在 redis 中

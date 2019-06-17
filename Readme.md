@@ -257,7 +257,7 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 ```
 ### elasticsearch 创建索引
 http://IP:9200/xunwu
-<br>PUT 请求, 发送 JSON 格式:
+<br>PUT 请求, 发送 JSON 格式: 
 ```json
 {
   "setting" :{
@@ -276,7 +276,8 @@ http://IP:9200/xunwu
       "properties" :{  
         "title":{
           "type": "text",
-          "analyzer": "ik_max_word"  // 使用IK分词器
+          "analyzer": "ik_max_word",  // 使用IK分词器
+          "search_analyzer": "ik_max_word" // 搜索时用的分词器
         },
         "houseId": {
           "type": "long"
@@ -324,22 +325,29 @@ http://IP:9200/xunwu
         },
         "description":{
           "type":"text",
-          "analyzer": "ik_max_word"
+          "analyzer": "ik_max_word",  // 使用IK分词器
+          "search_analyzer": "ik_max_word" // 搜索时用的分词器
         },
         "layoutDesc":{
           "type":"text",
-          "analyzer": "ik_max_word"
+          "analyzer": "ik_max_word",  // 使用IK分词器
+          "search_analyzer": "ik_max_word" // 搜索时用的分词器
         },
         "traffic" :{
           "type":"text",
-          "analyzer": "ik_max_word"
+          "analyzer": "ik_max_word",  // 使用IK分词器
+          "search_analyzer": "ik_max_word" // 搜索时用的分词器
         },
         "roundService" :{
           "type":"text",
-          "analyzer": "ik_max_word"
+          "analyzer": "ik_max_word",  // 使用IK分词器
+          "search_analyzer": "ik_max_word" // 搜索时用的分词器
         },
         "rentWay" :{
           "type":"integer"
+        },
+        "suggest": {
+          "type": "completion"      // es 建议类型
         }
       }
     }

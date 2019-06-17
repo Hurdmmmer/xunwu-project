@@ -1,14 +1,17 @@
 package com.youjian.xunwu.web.controller;
 
+import com.youjian.xunwu.comm.basic.ApiResponse;
 import com.youjian.xunwu.comm.basic.ServiceMultiResult;
 import com.youjian.xunwu.comm.entity.House;
 import com.youjian.xunwu.comm.entity.SupportAddress;
 import com.youjian.xunwu.comm.form.RentSearch;
 import com.youjian.xunwu.comm.form.RentValueBlock;
+import com.youjian.xunwu.comm.utils.JsonMapper;
 import com.youjian.xunwu.comm.vo.HouseVo;
 import com.youjian.xunwu.comm.vo.ServiceResult;
 import com.youjian.xunwu.comm.vo.SupportAddressVo;
 import com.youjian.xunwu.comm.vo.UserVo;
+import com.youjian.xunwu.search.service.ISearchService;
 import com.youjian.xunwu.service.IAddressService;
 import com.youjian.xunwu.service.IHouseService;
 import com.youjian.xunwu.service.IUserService;
@@ -23,6 +26,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import javax.servlet.http.HttpSession;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -41,8 +45,27 @@ public class MainController {
     private IHouseService houseService;
     @Autowired
     private IUserService userService;
+    @Autowired
+    private ISearchService searchService;
 
-    private ModelMapper modelMapper = new ModelMapper();
+    /**
+     * 搜索框自动补全功能
+     */
+    @GetMapping("/rent/house/autocomplete")
+    @ResponseBody
+    public ApiResponse autoComplete(@RequestParam("prefix") String prefix) {
+        if (prefix.isEmpty()) {
+            return ApiResponse.ofStatus(ApiResponse.Status.BAD_REQUEST);
+        }
+
+        ServiceResult<List<String>> suggest = searchService.suggest(prefix);
+        if (suggest.isSuccess()) {
+            return ApiResponse.ofSuccess(suggest.getData());
+        }
+
+        return ApiResponse.ofStatus(ApiResponse.Status.NOT_FOUND);
+    }
+
 
     @GetMapping({"/", "/index"})
     public String index(@RequestParam("msg") String msg, Model model) {
@@ -80,13 +103,14 @@ public class MainController {
     @GetMapping("/rent/house")
     public String rentHousePage(@ModelAttribute RentSearch rentSearch, Model mv, RedirectAttributes redirectAttributes,
                                 HttpSession session) {
+        log.info("rent house 查询条件为: {}", JsonMapper.obj2Json(rentSearch));
         if (rentSearch.getCityEnName() == null) {
             String cityEnName = (String) session.getAttribute("cityEnName");
             if (cityEnName == null) {
                 log.info("没有传入城市信息...");
                 redirectAttributes.addAttribute("msg", "must_chose_city");
                 // 跳转到主页
-                return "redirect:/index";
+                return "redirect:/createOrUpdateIndex";
             } else {
                 rentSearch.setCityEnName(cityEnName);
             }
@@ -99,7 +123,7 @@ public class MainController {
         if (supportAddressVos == null || supportAddressVos.size() == 0) {
             log.info("没有支持的区域: {}", rentSearch.getCityEnName());
             redirectAttributes.addAttribute("msg", "not_support_city");
-            return "redirect:/index";
+            return "redirect:/createOrUpdateIndex";
         }
 
         ServiceMultiResult<List<HouseVo>> query = houseService.query(rentSearch);
@@ -137,13 +161,15 @@ public class MainController {
         model.addAttribute("city", cityByEnName);
         SupportAddressVo region = addressService.findRegionByEnName(vo.getRegionEnName());
         if (region == null) {
-            return "redirect:/index?msg=must_chose_city";
+            return "redirect:/createOrUpdateIndex?msg=must_chose_city";
         }
         model.addAttribute("region", region);
         ServiceResult<UserVo> userDTOServiceResult = userService.findById(vo.getAdminId());
         model.addAttribute("agent", userDTOServiceResult.getData());
+        // 统计一个小区中多少套房屋出租
+        ServiceResult<Long> longServiceResult = searchService.aggregateDistrictHouse(cityEnName, region.getEnName(), vo.getDistrict());
 
-        model.addAttribute("houseCountInDistrict", 0);
+        model.addAttribute("houseCountInDistrict", longServiceResult.getData());
 
         return "house-detail";
     }

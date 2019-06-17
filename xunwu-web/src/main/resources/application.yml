@@ -10,12 +10,27 @@ spring:
     mode: HTML
     suffix: .html
     prefix: classpath:/templates/
+  rabbitmq:
+    host: 192.168.72.79
+    port: 5672
+    username: admin
+    password: admin
+    virtual-host: /
+    template:
+      retry:
+        enabled: true
+        initial-interval: 10000ms
+        max-interval: 30000ms
+        max-attempts: 2
+      exchange: xunwu-exchange
+    publisher-confirms: true   # 发送确认机制, 用于保证信息的安全
 
 # 设置 logging 级别
 logging:
   level:
     # 指定包名下日志输出为 debug
     org.hibernate.SQL: debug
+    com.youjian.xunwu.search.service: debug
 # 禁止 spring boot 生成错误页面
 server:
   error:

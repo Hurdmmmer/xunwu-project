@@ -31,5 +31,9 @@ public class HouseIndexTemplate {
     private String roundService;
     /** 出租方式 */
     private Integer rentWay;
+    /**
+     * 搜索建议
+     */
+    private List<HouseSuggest> suggest;
 
 }

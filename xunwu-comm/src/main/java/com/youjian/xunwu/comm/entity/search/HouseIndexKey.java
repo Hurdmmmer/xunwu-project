@@ -24,4 +24,5 @@ public interface HouseIndexKey {
     String TRAFFIC = "traffic";
     String ROUND_SERVICE = "roundService";
     String RENT_WAY = "rentWay";
+    String AGG_DISTRICT = "agg_district";
 }

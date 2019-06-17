@@ -12,11 +12,12 @@ import com.youjian.xunwu.comm.vo.*;
 import com.youjian.xunwu.dao.*;
 import com.youjian.xunwu.qiniu.config.QiniuConfig;
 import com.youjian.xunwu.qiniu.service.QiniuService;
+import com.youjian.xunwu.search.entity.HouseIndexMessage;
 import com.youjian.xunwu.search.service.ISearchService;
 import com.youjian.xunwu.service.IHouseService;
 import lombok.extern.slf4j.Slf4j;
-import org.checkerframework.checker.units.qual.A;
 import org.modelmapper.ModelMapper;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -58,7 +59,8 @@ public class HouseServiceImpl implements IHouseService {
     private QiniuService qiniuService;
     @Autowired
     private ISearchService searchService;
-
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
 
     private final ModelMapper modelMapper = new ModelMapper();
 
@@ -272,9 +274,12 @@ public class HouseServiceImpl implements IHouseService {
         house.setStatus(status);
         houseRepository.save(house);
         if (house.getStatus() == HouseStatus.AUDITED) {
-            searchService.index(houseId);
+//            searchService.createOrUpdateIndex(houseId);
+            HouseIndexMessage message = new HouseIndexMessage(houseId, HouseIndexMessage.INDEX, 0);
+            rabbitTemplate.convertAndSend("xunwu-exchange", "createOrUpdateIndex", message);
         } else {
-            searchService.remove(houseId );
+            HouseIndexMessage message = new HouseIndexMessage(houseId, HouseIndexMessage.REMOVE, 0);
+            rabbitTemplate.convertAndSend("xunwu-exchange", "createOrUpdateIndex", message);
         }
         return ServiceResult.ofSuccess(modelMapper.map(house, HouseVo.class));
     }
@@ -298,7 +303,8 @@ public class HouseServiceImpl implements IHouseService {
         house.setAdminId(SecurityKit.getCurrentUserId());
         house.setCreateTime(optHouse.map(House::getCreateTime).orElse(null));
         house.setLastUpdateTime(new Date());
-        house.setCover(optHouse.get().getCover());
+        house.setCover(houseForm.getCover() == null ? optHouse.get().getCover() : houseForm.getCover());
+        house.setStatus(optHouse.get().getStatus());
         houseRepository.save(house);
 
         List<PhotoForm> photos = houseForm.getPhotos();
@@ -312,7 +318,7 @@ public class HouseServiceImpl implements IHouseService {
         }
 
         if (house.getStatus() == HouseStatus.AUDITED) {
-            searchService.index(house.getId());
+            searchService.createOrUpdateIndex(house.getId());
         }
 
         return ServiceResult.ofSuccess(null);
@@ -380,44 +386,84 @@ public class HouseServiceImpl implements IHouseService {
     @Override
     @SuppressWarnings("unchecked")
     public ServiceMultiResult<List<HouseVo>> query(RentSearch rentSearch) {
+        Page<House> houses = null;
+        ServiceMultiResult<List<Long>> query = null;
+
         Sort sort = Sort.by(Sort.Direction.fromString(rentSearch.getOrderDirection()), rentSearch.getOrderBy());
         int page = rentSearch.getStart() / rentSearch.getSize();
         PageRequest pageRequest = PageRequest.of(page, rentSearch.getSize(), sort);
 
-        Specification<House> specification = (root, cq, cb) -> {
-            Predicate predicate = null;
-            String regionEnName = rentSearch.getRegionEnName();
-            predicate = cb.notEqual(root.get("status"), HouseStatus.DELETED);
-            predicate = cb.and(predicate, cb.notEqual(root.get("status"), HouseStatus.RENTED));
-            predicate = cb.and(predicate, cb.notEqual(root.get("status"), HouseStatus.UNREVIEWED));
-            if (regionEnName != null && !regionEnName.equalsIgnoreCase("*")) {
-                predicate = cb.and(predicate, cb.equal(root.get("regionEnName"), regionEnName));
+        if (rentSearch.getKeywords() != null && !rentSearch.getKeywords().isEmpty()) {
+            // ES 查询
+            query = searchService.query(rentSearch);
+            if (query.getTotal() == 0) {
+                return ServiceMultiResult.notFound();
             }
-            if (rentSearch.getDirection() > HouseDirection.ALL && rentSearch.getDirection() <= HouseDirection.NORTH_AND_SOUTH) {
-                predicate = cb.and(predicate, cb.equal(root.get("direction"), rentSearch.getDirection()));
-            }
-            if (rentSearch.getAreaBlock() != null) {
-                RentValueBlock rentValueBlock = RentValueBlock.matchArea(rentSearch.getAreaBlock());
-                predicate = generatorPredicate(predicate, root, cb, rentValueBlock, "area");
-            }
-            if (rentSearch.getPriceBlock() != null) {
-                RentValueBlock rentValueBlock = RentValueBlock.matchPrice(rentSearch.getPriceBlock());
-                predicate = generatorPredicate(predicate, root, cb, rentValueBlock, "price");
-            }
-            if (rentSearch.getKeywords() != null && rentSearch.getKeywords().trim().length() > 0) {
-                predicate = cb.and(predicate, cb.like(root.get("title"), "%" + rentSearch.getKeywords() + "%"));
-            }
-            if (rentSearch.getRoom() > 0) {
-                predicate = cb.and(predicate, cb.equal(root.get("room"), rentSearch.getRoom()));
-            }
-
-
-            return predicate;
-        };
-
-        Page<House> houses = this.houseRepository.findAll(specification, pageRequest);
+            houses = this.queryByIds(query.getData(), pageRequest);
+        } else {
+            // JPA 查询
+            Specification<House> specification = (root, cq, cb) -> {
+                Predicate predicate = null;
+                String regionEnName = rentSearch.getRegionEnName();
+                predicate = cb.notEqual(root.get("status"), HouseStatus.DELETED);
+                predicate = cb.and(predicate, cb.notEqual(root.get("status"), HouseStatus.RENTED));
+                predicate = cb.and(predicate, cb.notEqual(root.get("status"), HouseStatus.UNREVIEWED));
+                if (regionEnName != null && !regionEnName.equalsIgnoreCase("*")) {
+                    predicate = cb.and(predicate, cb.equal(root.get("regionEnName"), regionEnName));
+                }
+                if (rentSearch.getDirection() > HouseDirection.ALL && rentSearch.getDirection() <= HouseDirection.NORTH_AND_SOUTH) {
+                    predicate = cb.and(predicate, cb.equal(root.get("direction"), rentSearch.getDirection()));
+                }
+                if (rentSearch.getAreaBlock() != null) {
+                    RentValueBlock rentValueBlock = RentValueBlock.matchArea(rentSearch.getAreaBlock());
+                    predicate = generatorPredicate(predicate, root, cb, rentValueBlock, "area");
+                }
+                if (rentSearch.getPriceBlock() != null) {
+                    RentValueBlock rentValueBlock = RentValueBlock.matchPrice(rentSearch.getPriceBlock());
+                    predicate = generatorPredicate(predicate, root, cb, rentValueBlock, "price");
+                }
+                if (rentSearch.getKeywords() != null && rentSearch.getKeywords().trim().length() > 0) {
+                    predicate = cb.and(predicate, cb.like(root.get("title"), "%" + rentSearch.getKeywords() + "%"));
+                }
+                if (rentSearch.getRoom() > 0) {
+                    predicate = cb.and(predicate, cb.equal(root.get("room"), rentSearch.getRoom()));
+                }
+                return predicate;
+            };
+            houses = this.houseRepository.findAll(specification, pageRequest);
+        }
 
         List<House> content = houses.getContent();
+        List<HouseVo> vos = getHouseDetailVos(content);
+        if (vos.size() == 0) {
+            return ServiceMultiResult.<List<HouseVo>>notFound();
+        }
+        if (query != null) {
+            List<Long> data = query.getData();
+            List<HouseVo> t = new ArrayList<>();
+            for (Long datum : data) {
+                for (HouseVo vo : vos) {
+                    if (datum.equals(vo.getId())) {
+                        t.add(vo);
+                    }
+                }
+            }
+            vos = t;
+            t = null;
+        }
+
+        return ServiceMultiResult.<List<HouseVo>>builder()
+                .page(page)
+                .total(query != null ? query.getTotal() : (int) houses.getTotalElements())
+                .success(true)
+                .data(vos)
+                .build();
+    }
+
+    /**
+     * 填充 house 详细信息
+     */
+    private List<HouseVo> getHouseDetailVos(List<House> content) {
         List<HouseVo> vos = new ArrayList<>();
         for (House house : content) {
             HouseVo vo = modelMapper.map(house, HouseVo.class);
@@ -432,16 +478,18 @@ public class HouseServiceImpl implements IHouseService {
             }
             vos.add(vo);
         }
-        if (vos.size() == 0) {
-            return ServiceMultiResult.<List<HouseVo>>notFound();
-        }
+        return vos;
+    }
 
-        return ServiceMultiResult.<List<HouseVo>>builder()
-                .page(page)
-                .total((int) houses.getTotalElements())
-                .success(true)
-                .data(vos)
-                .build();
+    private Page<House> queryByIds(List<Long> data, PageRequest page) {
+        Specification<House> specification = ((root, criteriaQuery, criteriaBuilder) -> {
+            CriteriaBuilder.In<Long> in = criteriaBuilder.in(root.get("id"));
+            for (Long datum : data) {
+                in.value(datum);
+            }
+            return in;
+        });
+        return this.houseRepository.findAll(specification, page);
     }
 
     private Predicate generatorPredicate(Predicate predicate, Root<House> root, CriteriaBuilder cb, RentValueBlock rentValueBlock, String field) {
