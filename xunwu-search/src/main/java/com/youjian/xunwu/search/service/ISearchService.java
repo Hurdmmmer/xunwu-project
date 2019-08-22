@@ -1,6 +1,7 @@
 package com.youjian.xunwu.search.service;
 
 import com.youjian.xunwu.comm.basic.ServiceMultiResult;
+import com.youjian.xunwu.comm.entity.search.HouseBucketDTO;
 import com.youjian.xunwu.comm.form.RentSearch;
 import com.youjian.xunwu.comm.vo.ServiceResult;
 
@@ -33,4 +34,6 @@ public interface ISearchService {
      * 根据小区和城市进行聚合统计
      */
     ServiceResult<Long> aggregateDistrictHouse(String cityEnName, String regionEnName, String district);
+    /** 根据城市聚合区域数量 */
+    ServiceMultiResult<List<HouseBucketDTO>> mapAggregate(String cityEnName);
 }

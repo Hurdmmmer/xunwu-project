@@ -75,7 +75,13 @@ public class AddressServiceImpl implements IAddressService {
             return null;
         }
 
-        return addresses.stream().map(e -> modelMapper.map(e, SupportAddressVo.class)).collect(Collectors.toList());
+
+        return addresses.stream().map(e -> {
+            SupportAddressVo vo = modelMapper.map(e, SupportAddressVo.class);
+            vo.setBaiduMapLongitude(e.getBaiduMapLng());
+            vo.setBaiduMapLatitude(e.getBaiduMapLat());
+            return vo;
+        }).collect(Collectors.toList());
     }
 
     @Override
@@ -92,7 +98,10 @@ public class AddressServiceImpl implements IAddressService {
     @Override
     public SupportAddressVo findCityByEnName(String cityEnName) {
         SupportAddress byEnName = supportAddressRepository.findByEnName(cityEnName);
-        return modelMapper.map(byEnName, SupportAddressVo.class);
+        SupportAddressVo map = modelMapper.map(byEnName, SupportAddressVo.class);
+        map.setBaiduMapLatitude(byEnName.getBaiduMapLat());
+        map.setBaiduMapLongitude(byEnName.getBaiduMapLng());
+        return map;
     }
 
     @Override
@@ -101,6 +110,9 @@ public class AddressServiceImpl implements IAddressService {
         if (supportAddress == null) {
             return null;
         }
-        return modelMapper.map(supportAddress, SupportAddressVo.class);
+        SupportAddressVo vo = modelMapper.map(supportAddress, SupportAddressVo.class);
+        vo.setBaiduMapLatitude(supportAddress.getBaiduMapLat());
+        vo.setBaiduMapLongitude(supportAddress.getBaiduMapLng());
+        return vo;
     }
 }

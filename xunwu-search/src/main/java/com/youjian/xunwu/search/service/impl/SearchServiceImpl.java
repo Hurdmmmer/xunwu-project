@@ -8,6 +8,7 @@ import com.youjian.xunwu.comm.basic.ServiceMultiResult;
 import com.youjian.xunwu.comm.entity.House;
 import com.youjian.xunwu.comm.entity.HouseDetail;
 import com.youjian.xunwu.comm.entity.HouseTag;
+import com.youjian.xunwu.comm.entity.search.HouseBucketDTO;
 import com.youjian.xunwu.comm.entity.search.HouseIndexKey;
 import com.youjian.xunwu.comm.entity.search.HouseIndexTemplate;
 import com.youjian.xunwu.comm.entity.search.HouseSuggest;
@@ -38,6 +39,7 @@ import org.elasticsearch.index.reindex.DeleteByQueryRequestBuilder;
 import org.elasticsearch.rest.RestStatus;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.Aggregations;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
@@ -385,5 +387,33 @@ public class SearchServiceImpl implements ISearchService {
             log.warn("Failed to Aggregation for {}", HouseIndexKey.AGG_DISTRICT);
         }
         return ServiceResult.ofSuccess(0L);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public ServiceMultiResult<List<HouseBucketDTO>> mapAggregate(String cityEnName) {
+        BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+        // 过滤指定字段
+        boolQuery.filter(QueryBuilders.termQuery(HouseIndexKey.CITY_EN_NAME, cityEnName));
+        SearchRequestBuilder requestBuilder = this.esClient.prepareSearch(INDEX_NAME)
+                .setTypes(INDEX_TYPE)
+                .setQuery(boolQuery)  // 设置查询条件
+                .addAggregation(  // 再进行聚合
+                        AggregationBuilders.terms(HouseIndexKey.AGG_REGIONS) // 指定一个聚合名称
+                                .field(HouseIndexKey.REGION_EN_NAME))        // 指定聚合的字段
+                .setSize(0);
+        log.debug(requestBuilder.toString());
+
+        SearchResponse searchResponse = requestBuilder.get();
+        List<HouseBucketDTO> dtos = Lists.newArrayList();
+        if (searchResponse.status() == RestStatus.OK) {
+            Aggregations aggregations = searchResponse.getAggregations();
+            Terms terms = aggregations.get(HouseIndexKey.AGG_REGIONS); // 根据聚合的名称获取聚合的结果集
+            // 获取聚合结果 井水 面粉 蛋 油
+            for (Terms.Bucket bucket : terms.getBuckets()) {
+                dtos.add(HouseBucketDTO.builder().key(bucket.getKeyAsString()).count(bucket.getDocCount()).build());
+            }
+        }
+        return ServiceMultiResult.<List<HouseBucketDTO>>builder().total((int) searchResponse.getHits().totalHits).data(dtos).success(true).build();
     }
 }

@@ -11,4 +11,6 @@ public class SupportAddressVo {
     @JsonProperty("en_name")
     private String enName;
     private String level;
+    private double baiduMapLongitude;
+    private double baiduMapLatitude;
 }

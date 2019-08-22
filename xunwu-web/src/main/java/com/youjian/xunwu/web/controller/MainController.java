@@ -4,6 +4,7 @@ import com.youjian.xunwu.comm.basic.ApiResponse;
 import com.youjian.xunwu.comm.basic.ServiceMultiResult;
 import com.youjian.xunwu.comm.entity.House;
 import com.youjian.xunwu.comm.entity.SupportAddress;
+import com.youjian.xunwu.comm.entity.search.HouseBucketDTO;
 import com.youjian.xunwu.comm.form.RentSearch;
 import com.youjian.xunwu.comm.form.RentValueBlock;
 import com.youjian.xunwu.comm.utils.JsonMapper;
@@ -174,4 +175,22 @@ public class MainController {
         return "house-detail";
     }
 
+    @GetMapping("/rent/house/map")
+    public String rentMapHouse(@RequestParam("cityEnName") String cityEnName, Model model, HttpSession session, RedirectAttributes redirectAttributes) {
+        SupportAddressVo city = addressService.findCityByEnName(cityEnName);
+        if (city == null) {
+            redirectAttributes.addAttribute("city", "must_chose_city");
+            return "redirect:index";
+        }
+        session.setAttribute("cityName", cityEnName);
+        model.addAttribute("city", city);
+        List<SupportAddressVo> region = addressService.findAllRegionByCityName(cityEnName);
+        ServiceMultiResult<List<HouseBucketDTO>> result = searchService.mapAggregate(cityEnName);
+
+        model.addAttribute("aggData", result.getData());
+        model.addAttribute("total", result.getTotal());
+        model.addAttribute("regions", region);
+
+        return "rent-map";
+    }
 }

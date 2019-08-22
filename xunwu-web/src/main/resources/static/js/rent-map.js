@@ -10,9 +10,9 @@ var regionCountMap = {}, // 地区数据
     customLayer; // 麻点图
 
 function load(city, regions, aggData) {
-    // 百度地图API功能
+    // 百度地图API功能                    地图级别
     var map = new BMap.Map("allmap", {minZoom: 12}); // 创建实例。设置地图显示最大级别为城市
-    var point = new BMap.Point(city.baiduMapLongitude, city.baiduMapLatitude); // 城市中心
+    var point = new BMap.Point(city.baiduMapLongitude, city.baiduMapLatitude); // 设置百度地图显示的城市中心
     map.centerAndZoom(point, 12); // 初始化地图，设置中心点坐标及地图级别
 
     map.addControl(new BMap.NavigationControl({enableGeolocation: true})); // 添加比例尺控件

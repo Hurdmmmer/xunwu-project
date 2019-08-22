@@ -19,4 +19,8 @@ public class ServiceMultiResult<T>  {
     public static <T> ServiceMultiResult notFound() {
         return ServiceMultiResult.<T>builder().success(false).msg("Not Found").build();
     }
+
+    public static <T> ServiceMultiResult of(T data) {
+        return ServiceMultiResult.<T>builder().success(true).data(data).build();
+    }
 }
